@@ -113,7 +113,7 @@ SAMPLE_TICKETS: list[dict[str, str]] = [
     },
     {
         "title": "Ceiling tile water stain",
-        "description": "Brown stain spreading on a ceiling tile by the window in room 210. No drip yet.",
+        "description": "Brown stain spreading on a ceiling tile by the window. No drip yet.",
         "asset_id": "OFFICE-210",
     },
     {
