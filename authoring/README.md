@@ -56,10 +56,11 @@ The static review reads the test with Python's `ast` module, never importing it:
   `len(x) >= 0`. The test can only fail on an exception.
 - **no suite marker**: the framework requires `smoke`, `regression`, etc.
 - **duplicates existing test ...**: the test has the same coverage fingerprint as one
-  already in `tests/`. A fingerprint is the set of HTTP calls made, status codes asserted,
-  response fields asserted, and faults used. Two tests with equal fingerprints check the
-  same thing, whatever their names say. The report lists every fingerprint so you can see
-  why.
+  already in `tests/`. A fingerprint is the set of HTTP calls made, status codes and
+  literal values asserted, comparison operators, response fields asserted, faults used,
+  and parametrize values. Two tests with equal fingerprints check the same thing,
+  whatever their names say. The match is exact on purpose: overlapping-but-different
+  coverage is left for the reviewer, and the report lists every fingerprint to help.
 
 A failing draft is marked "investigate", not "discard". Generated tests fail for two
 reasons: the test is wrong, or it found something. The report cannot tell which, and

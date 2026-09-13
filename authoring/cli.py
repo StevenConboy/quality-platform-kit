@@ -130,7 +130,14 @@ def review_module(module: Path, endpoint: str, meta: dict[str, str]) -> int:
     flag_duplicates(drafted, existing)
 
     junit = module.parent / "junit.xml"
-    runs = run_pytest([module], junit, cwd=REPO_ROOT)
+    # Drafts may live anywhere (--out), so tell pytest where the project config, rootdir
+    # and fixtures are rather than relying on conftest discovery from the draft's folder.
+    pytest_args = [
+        "-c", str(REPO_ROOT / "pyproject.toml"),
+        "--rootdir", str(REPO_ROOT),
+        "-p", "tests.framework.fixtures",
+    ]  # fmt: skip
+    runs = run_pytest([module], junit, cwd=REPO_ROOT, extra_args=pytest_args)
     reviewed = review_all(drafted, runs)
 
     report_path = module.parent / "REVIEW.md"

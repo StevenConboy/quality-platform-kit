@@ -30,8 +30,9 @@ def test_triage_returns_documented_priority_and_category(
 def test_missing_asset_id_is_rejected_with_422(
     client: TriageClient, ticket: dict[str, Any]
 ) -> None:
-    # Duplicate coverage: tests/regression/test_triage_validation.py already checks 422
-    # for every missing field. Well written, but not needed.
+    # Overlaps tests/regression/test_triage_validation.py, which checks 422 for every
+    # missing field, but not closely enough for the exact-match duplicate check to flag
+    # it. Spotting that overlap is the reviewer's job; the fingerprints help.
     del ticket["asset_id"]
     response = client.triage_raw(ticket)
     assert response.status_code == 422

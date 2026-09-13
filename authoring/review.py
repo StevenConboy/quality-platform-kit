@@ -101,10 +101,13 @@ def _inspect_body(func: ast.FunctionDef | ast.AsyncFunctionDef, info: TestInfo) 
     for decorator in func.decorator_list:
         if isinstance(decorator, ast.Call) and "parametrize" in ast.unparse(decorator.func):
             for node in ast.walk(decorator):
-                if isinstance(node, ast.Constant) and isinstance(node.value, str | int):
-                    if not isinstance(node.value, bool):
-                        prints.add(f"param:{str(node.value)[:40]}")
+                if isinstance(node, ast.Constant) and _is_param_value(node.value):
+                    prints.add(f"param:{str(node.value)[:40]}")
     info.fingerprint = frozenset(prints)
+
+
+def _is_param_value(value: object) -> bool:
+    return isinstance(value, str | int) and not isinstance(value, bool)
 
 
 def _assertion_facts(test: ast.expr) -> set[str]:
@@ -197,7 +200,11 @@ def describe_fingerprint(test: TestInfo) -> str:
 # --- running ----------------------------------------------------------------------------
 
 
-def run_pytest(paths: list[Path], junit_path: Path, cwd: Path) -> dict[str, RunResult]:
+def run_pytest(
+    paths: list[Path], junit_path: Path, cwd: Path, extra_args: list[str] | None = None
+) -> dict[str, RunResult]:
+    """Run pytest on the drafts. `extra_args` is where the caller pins the project's
+    config, rootdir and fixture plugin, so drafts outside the repo still get them."""
     cmd = [
         sys.executable,
         "-m",
@@ -209,6 +216,7 @@ def run_pytest(paths: list[Path], junit_path: Path, cwd: Path) -> dict[str, RunR
         "-o",
         "junit_family=xunit1",
         f"--junitxml={junit_path}",
+        *(extra_args or []),
     ]
     subprocess.run(cmd, cwd=cwd, capture_output=True, check=False)
     if not junit_path.exists():

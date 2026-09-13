@@ -141,8 +141,8 @@ def test_end_to_end_review_from_draft_file(tmp_path: Path) -> None:
     )
     assert "`test_summary_exists` | passed | no assertions | needs work" in report
     assert (
-        "`test_missing_asset_id_is_rejected_with_422` | passed | duplicates existing test tests/"
-        in report
+        "`test_unknown_fault_header_is_rejected` | passed | duplicates existing test "
+        "tests/regression/test_triage_faults.py::test_unknown_fault_name_is_rejected" in report
     )
     assert "`test_summary_is_never_longer_than_100_characters` | failed: AssertionError" in report
     assert "investigate: failed" in report
