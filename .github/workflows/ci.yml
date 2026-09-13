@@ -23,7 +23,7 @@ jobs:
     name: lint (ruff)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           python-version: "3.12"
@@ -34,7 +34,7 @@ jobs:
     name: typecheck (mypy)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           python-version: "3.12"
@@ -48,7 +48,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           python-version: ${{ matrix.python }}
@@ -67,7 +67,7 @@ jobs:
           uv run python scripts/junit_summary.py --title "Smoke (py${{ matrix.python }})" reports/junit-smoke.xml >> "$GITHUB_STEP_SUMMARY"
           uv run python scripts/junit_summary.py --quarantine --title "Quarantined smoke tests (py${{ matrix.python }})" reports/junit-smoke-flaky.xml >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: junit-smoke-py${{ matrix.python }}
@@ -81,7 +81,7 @@ jobs:
       matrix:
         python: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           python-version: ${{ matrix.python }}
@@ -100,7 +100,7 @@ jobs:
           uv run python scripts/junit_summary.py --title "Regression (py${{ matrix.python }})" reports/junit-regression.xml >> "$GITHUB_STEP_SUMMARY"
           uv run python scripts/junit_summary.py --quarantine --title "Quarantined regression tests (py${{ matrix.python }})" reports/junit-regression-flaky.xml >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: junit-regression-py${{ matrix.python }}
@@ -117,7 +117,7 @@ jobs:
       # Guarantee no network calls even if the repository has the secret configured.
       ANTHROPIC_API_KEY: ""
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           python-version: ${{ matrix.python }}
@@ -136,7 +136,7 @@ jobs:
           uv run python scripts/junit_summary.py --title "Harness offline (py${{ matrix.python }})" reports/junit-harness.xml >> "$GITHUB_STEP_SUMMARY"
           uv run python scripts/junit_summary.py --quarantine --title "Quarantined harness tests (py${{ matrix.python }})" reports/junit-harness-flaky.xml >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: harness-offline-py${{ matrix.python }}
@@ -166,7 +166,7 @@ jobs:
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           python-version: "3.12"
@@ -180,7 +180,7 @@ jobs:
           uv run python scripts/junit_summary.py --title "Harness online" reports/junit-harness-online.xml >> "$GITHUB_STEP_SUMMARY"
           { echo; echo "## Harness report (online)"; echo; cat reports/harness-report.md; } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: harness-online
