@@ -39,6 +39,11 @@ testpaths = ["tests"]
 # --strict-config: a typo in this section is an error too.
 addopts = "--strict-markers --strict-config -ra"
 log_level = "INFO"
+filterwarnings = [
+    # Starlette's TestClient uses a deprecated anyio alias. Not our code; remove this line
+    # once a Starlette release stops triggering it.
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+]
 markers = [
     "smoke: fast checks that the service is up and the main paths work; run on every push",
     "regression: behaviour that has been specified or has broken before; run before merge",
