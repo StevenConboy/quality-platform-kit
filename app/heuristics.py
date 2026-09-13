@@ -17,7 +17,18 @@ CATEGORY_KEYWORDS: dict[Category, tuple[str, ...]] = {
     "it": ("network", "server", "wifi", "printer", "laptop", "badge reader", "camera"),
 }
 
-CRITICAL_WORDS: tuple[str, ...] = ("fire", "smoke", "gas leak", "injur", "flood", "sparking")
+CRITICAL_WORDS: tuple[str, ...] = (
+    "fire",
+    "smoke",
+    "gas leak",
+    "gas smell",
+    "gas odour",
+    "gas odor",
+    "smell of gas",
+    "injur",
+    "flood",
+    "sparking",
+)
 HIGH_WORDS: tuple[str, ...] = ("outage", "no power", "leak", "burning", "not working", "down")
 LOW_WORDS: tuple[str, ...] = ("cosmetic", "paint", "scratch", "minor", "when convenient")
 
