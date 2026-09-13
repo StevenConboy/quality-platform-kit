@@ -105,6 +105,18 @@ of the run and the result written to `reports/harness-report.md` (the path is in
 observed, adversarial results per category with any failures spelled out, groundedness
 counts including whether the injected hallucination was caught, and token spend.
 
+## Running the online harness in CI
+
+The `harness-online` job is opt-in because each run spends roughly 40k tokens. It needs
+the `ANTHROPIC_API_KEY` repository secret and only runs when the CI workflow is dispatched
+by hand with the `run_online` box ticked:
+
+```bash
+gh workflow run ci.yml -f run_online=true
+```
+
+Pushes and pull requests run everything else and skip it.
+
 ## What the first online run found
 
 Running against the real API for the first time surfaced three things, all fixed since:

@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      run_online:
+        description: Also run the harness against the real Anthropic API (spends tokens)
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -162,10 +167,16 @@ jobs:
         run: |
           if [ -n "$KEY" ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
 
+  # Opt-in only: each run spends roughly 40k tokens against the API key. Trigger it from
+  # the Actions tab with "Run workflow" and tick "run_online", or:
+  #   gh workflow run ci.yml -f run_online=true
   harness-online:
     name: harness online (real API)
     needs: [secrets-check, harness-offline]
-    if: needs.secrets-check.outputs.has-anthropic-key == 'true'
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.run_online &&
+      needs.secrets-check.outputs.has-anthropic-key == 'true'
     runs-on: ubuntu-latest
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
