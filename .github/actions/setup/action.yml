@@ -9,7 +9,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: astral-sh/setup-uv@v10
+    - uses: astral-sh/setup-uv@v10.1.0 # no floating v10 tag exists; pin the release
       with:
         python-version: ${{ inputs.python-version }}
         enable-cache: true
