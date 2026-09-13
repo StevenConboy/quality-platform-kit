@@ -134,6 +134,21 @@ def test_pii_in_ticket_never_reaches_the_summary(
     assert "pii_redacted" in leaked.warnings
 
 
+def test_fallback_summary_is_also_pii_guarded(client: TriageClient, faults: FaultToggler) -> None:
+    """Found by the harness against the real API: the fallback summary is the ticket
+    title, and a title can contain contact details just as a description can."""
+    ticket = make_ticket(title="Ask jo.bloggs@example.org about the smell in 4C")
+    faults.assert_off("llm_rate_limit")
+
+    with faults.enabled("llm_rate_limit"):
+        degraded = client.triage(ticket)
+
+    assert degraded.source == "fallback"
+    assert "jo.bloggs@example.org" not in degraded.summary
+    assert "[redacted-email]" in degraded.summary
+    assert "pii_redacted" in degraded.warnings
+
+
 def test_fallback_without_a_cached_category_uses_keywords(
     client: TriageClient, faults: FaultToggler
 ) -> None:

@@ -227,11 +227,15 @@ class TriageService:
         else:
             category = keyword_category(ticket.text)
             warnings = [*warnings, "category_from_keywords"]
+        # The title is user text too, so the same guard applies as on the LLM path.
+        summary, redacted = redact_pii(one_line(ticket.title))
+        if redacted:
+            warnings = [*warnings, "pii_redacted"]
         return TriageResponse(
             ticket_id=str(uuid.uuid4()),
             priority=fallback_priority(ticket.text),
             category=category,
-            summary=one_line(ticket.title),
+            summary=summary,
             source="fallback",
             degraded=True,
             degradation_reason=error.reason,

@@ -18,6 +18,7 @@ import pytest
 pytestmark = pytest.mark.regression
 
 
+@pytest.mark.flaky  # quarantined 2026-09-13 by scripts/flake_detect.py: failed 5 of 8 runs
 def test_simulated_flake() -> None:
     if os.environ.get("SIMULATE_FLAKY") == "1":
         assert random.random() < 0.5, "simulated intermittent failure (SIMULATE_FLAKY=1)"
