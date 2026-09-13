@@ -47,6 +47,14 @@ def slug(endpoint: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", endpoint.lower()).strip("_") or "root"
 
 
+def rel(path: Path) -> str:
+    """Repo-relative for display when possible; --out may point anywhere."""
+    try:
+        return path.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 # --- commands ---------------------------------------------------------------------------
 
 
@@ -77,7 +85,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             example_path=EXAMPLE_PATH.relative_to(REPO_ROOT),
             example_source=EXAMPLE_PATH.read_text(encoding="utf-8"),
             existing_tests=existing_lines,
-            module_name=module.relative_to(REPO_ROOT).as_posix(),
+            module_name=rel(module),
         )
         print(f"drafting {args.count} tests for {args.endpoint} with {args.model} ...")
         draft = Generator(model=args.model).draft(system_prompt, user_message)
@@ -97,7 +105,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
         json.dumps({**meta, "generated_at": datetime.now(UTC).isoformat()}, indent=2),
         encoding="utf-8",
     )
-    print(f"wrote {module.relative_to(REPO_ROOT).as_posix()}")
+    print(f"wrote {rel(module)}")
     return review_module(module, args.endpoint, meta)
 
 
@@ -128,9 +136,7 @@ def review_module(module: Path, endpoint: str, meta: dict[str, str]) -> int:
     report_path = module.parent / "REVIEW.md"
     report_path.write_text(render_report(endpoint, module, reviewed, meta), encoding="utf-8")
 
-    print(
-        f"\n{len(reviewed)} tests reviewed; report: {report_path.relative_to(REPO_ROOT).as_posix()}"
-    )
+    print(f"\n{len(reviewed)} tests reviewed; report: {rel(report_path)}")
     for r in reviewed:
         print(f"  {r.run.outcome:<8} {r.test.name:<50} {r.verdict}")
     return 0

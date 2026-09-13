@@ -11,7 +11,7 @@ import pytest
 
 from app.main import create_app
 from authoring.generator import extract_code, render_prompt
-from authoring.review import analyze_file, analyze_tree, flag_duplicates
+from authoring.review import RunResult, aggregate, analyze_file, analyze_tree, flag_duplicates
 from authoring.spec import extract_operations, render_operations
 
 pytestmark = pytest.mark.regression
@@ -61,6 +61,43 @@ def test_static_review_flags_duplicate_of_existing_test() -> None:
                for w in dup.weaknesses)  # fmt: skip
     clean = next(t for t in drafted if t.name == "test_rate_limit_fault_produces_fallback")
     assert not any(w.startswith("duplicates") for w in clean.weaknesses)
+
+
+def test_parametrized_cases_fold_into_one_result() -> None:
+    raw = {
+        "test_a[x]": RunResult("passed", "", 0.1),
+        "test_a[y]": RunResult("failed", "AssertionError: boom", 0.2),
+        "test_a[z]": RunResult("passed", "", 0.1),
+        "test_b[1]": RunResult("passed", "", 0.1),
+        "test_b[2]": RunResult("passed", "", 0.1),
+        "test_c": RunResult("passed", "", 0.1),
+    }
+
+    folded = aggregate(raw)
+
+    assert folded["test_a"].outcome == "failed"
+    assert folded["test_a"].message == "1 of 3 cases: AssertionError: boom"
+    assert folded["test_b"] == RunResult("passed", "2 cases", 0.2)
+    assert folded["test_c"].message == ""
+
+
+def test_parametrize_values_are_part_of_the_fingerprint(tmp_path: Path) -> None:
+    source = tmp_path / "test_params.py"
+    source.write_text(
+        "import pytest\n"
+        "pytestmark = pytest.mark.regression\n"
+        "@pytest.mark.parametrize('field', ['title', 'asset_id'])\n"
+        "def test_x(client, ticket, field):\n"
+        "    assert client.post('/triage', json_body=ticket).status_code == 422\n"
+        "@pytest.mark.parametrize('n', [201, 4001])\n"
+        "def test_y(client, ticket, n):\n"
+        "    assert client.post('/triage', json_body=ticket).status_code == 422\n"
+    )
+
+    x, y = analyze_file(source)
+
+    assert {"param:title", "param:asset_id"} <= x.fingerprint
+    assert x.fingerprint != y.fingerprint
 
 
 def test_unmarked_module_is_flagged(tmp_path: Path) -> None:

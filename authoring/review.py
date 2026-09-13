@@ -96,6 +96,14 @@ def _inspect_body(func: ast.FunctionDef | ast.AsyncFunctionDef, info: TestInfo) 
                 prints.add(f"call:{callee.attr} {path}".strip())
         elif isinstance(node, ast.Constant) and node.value in ALL_FAULTS:
             prints.add(f"fault:{node.value}")
+    # Parametrize values are part of what a test covers, even though they sit outside
+    # the body. Without them, two parametrized 422 tests look identical.
+    for decorator in func.decorator_list:
+        if isinstance(decorator, ast.Call) and "parametrize" in ast.unparse(decorator.func):
+            for node in ast.walk(decorator):
+                if isinstance(node, ast.Constant) and isinstance(node.value, str | int):
+                    if not isinstance(node.value, bool):
+                        prints.add(f"param:{str(node.value)[:40]}")
     info.fingerprint = frozenset(prints)
 
 
@@ -203,9 +211,14 @@ def run_pytest(paths: list[Path], junit_path: Path, cwd: Path) -> dict[str, RunR
         f"--junitxml={junit_path}",
     ]
     subprocess.run(cmd, cwd=cwd, capture_output=True, check=False)
-    results: dict[str, RunResult] = {}
     if not junit_path.exists():
-        return results
+        return {}
+    return aggregate(parse_junit(junit_path))
+
+
+def parse_junit(junit_path: Path) -> dict[str, RunResult]:
+    """One entry per test case as pytest names it, parameters included."""
+    results: dict[str, RunResult] = {}
     for case in ET.parse(junit_path).getroot().iter("testcase"):
         name = case.get("name", "")
         seconds = float(case.get("time", 0.0))
@@ -222,6 +235,29 @@ def run_pytest(paths: list[Path], junit_path: Path, cwd: Path) -> dict[str, RunR
             continue
         results[name] = RunResult("passed", "", seconds)
     return results
+
+
+def aggregate(results: dict[str, RunResult]) -> dict[str, RunResult]:
+    """Fold parametrized cases (`test_x[a]`, `test_x[b]`) into one result per function.
+    Any failure fails the function; the message names how many cases failed."""
+    grouped: dict[str, list[RunResult]] = {}
+    for name, result in results.items():
+        grouped.setdefault(name.split("[", 1)[0], []).append(result)
+    folded: dict[str, RunResult] = {}
+    for name, cases in grouped.items():
+        seconds = sum(c.seconds for c in cases)
+        bad = [c for c in cases if c.outcome in ("failed", "error")]
+        if bad:
+            note = bad[0].message
+            if len(cases) > 1:
+                note = f"{len(bad)} of {len(cases)} cases: {note}"
+            folded[name] = RunResult(bad[0].outcome, note, seconds)
+        elif all(c.outcome == "skipped" for c in cases):
+            folded[name] = RunResult("skipped", "", seconds)
+        else:
+            note = f"{len(cases)} cases" if len(cases) > 1 else ""
+            folded[name] = RunResult("passed", note, seconds)
+    return folded
 
 
 def _first_line(node: ET.Element) -> str:
