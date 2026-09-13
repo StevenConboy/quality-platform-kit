@@ -154,6 +154,20 @@ class TriageClient(BaseApiClient):
         assert response.status_code == 200, f"expected 200, got {self.last.render()}"
         return TriageResponse.model_validate(response.json())
 
+    def triage_healthy(self, ticket: dict[str, Any], *, attempts: int = 3) -> TriageResponse:
+        """Triage that is expected to succeed. Retries only when the app reports the
+        upstream provider was unavailable, which on a real network is a transient blip
+        rather than a finding. Any other degradation is returned as is."""
+        result = self.triage(ticket)
+        for _ in range(attempts - 1):
+            if result.degradation_reason != "llm_unavailable":
+                break
+            if self.log:
+                self.log.warn("upstream unavailable, retrying baseline", asset=ticket["asset_id"])
+            time.sleep(1.0)
+            result = self.triage(ticket)
+        return result
+
     def health(self, *, probe: bool = False, faults: Iterable[str] | None = None) -> HealthResponse:
         response = self.get(
             "/health", params={"probe": str(probe).lower()}, headers=fault_header(faults)

@@ -20,10 +20,12 @@ class AnthropicProvider:
 
     def __init__(self, model: str, timeout_seconds: float, api_key: str | None = None) -> None:
         self.model = model
-        # max_retries=0: the app owns its retry and fallback policy, so a 429 or timeout
-        # must surface immediately rather than being retried silently by the SDK.
+        # The SDK retries connection errors, 429s and 5xx with backoff. Fault injection
+        # happens above this layer, so tests of the app's own handling are unaffected;
+        # what the retries buy is resilience to the dropped connections a real network
+        # produces (the online harness saw them on its first run).
         self._client = anthropic.AsyncAnthropic(
-            api_key=api_key, timeout=timeout_seconds, max_retries=0
+            api_key=api_key, timeout=timeout_seconds, max_retries=2
         )
 
     async def complete(self, system: str, user: str) -> LLMResult:

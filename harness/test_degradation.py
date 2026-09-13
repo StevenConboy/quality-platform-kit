@@ -91,7 +91,7 @@ def test_app_degrades_per_contract(
     ticket = make_ticket(WITH_PII) if fault == "pii_leak" else make_ticket()
 
     faults.assert_off(fault)
-    healthy = client.triage(ticket)
+    healthy = client.triage_healthy(ticket)
     assert healthy.source == "llm" and not healthy.degraded
 
     with faults.enabled(fault):
@@ -139,7 +139,7 @@ def test_app_recovers_after_fault(client: TriageClient, faults: FaultToggler, fa
     with faults.enabled(fault):
         client.triage_raw(ticket)
 
-    recovered = client.triage(ticket)
+    recovered = client.triage_healthy(ticket)
     health = client.health()
 
     assert recovered.source == "llm"

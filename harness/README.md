@@ -105,6 +105,19 @@ of the run and the result written to `reports/harness-report.md` (the path is in
 observed, adversarial results per category with any failures spelled out, groundedness
 counts including whether the injected hallucination was caught, and token spend.
 
+## What the first online run found
+
+Running against the real API for the first time surfaced three things, all fixed since:
+
+- The fallback summary (the ticket title) skipped the PII guard, so an email address in
+  a title leaked whenever the LLM was unavailable.
+- The triage model decoded asset codes: `STAIR-N-3` became "north stairwell, level 3" in
+  a summary. The judge scored it unsupported. The system prompt now says asset ids are
+  opaque.
+- Dropped connections between the runner and the API turned into fallbacks because SDK
+  retries were off. They are on now, and the harness's "prove healthy" baseline retries
+  a transient `llm_unavailable` rather than reporting it as a contract failure.
+
 ## Extending it
 
 - New fault in the app: add a `Contract` in `test_degradation.py`. The suite tells you if

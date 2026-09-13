@@ -106,8 +106,9 @@ implementations:
 
 - **FakeProvider** answers instantly and deterministically using keyword rules. Same input,
   same output, no network. Every test in this repo runs against it by default.
-- **AnthropicProvider** uses the Anthropic Python SDK. SDK retries are disabled so that a 429
-  or timeout reaches the app immediately and the app's own handling is what gets exercised.
+- **AnthropicProvider** uses the Anthropic Python SDK with its standard retries (two, with
+  backoff) for dropped connections, 429s and 5xx. Faults are injected above the SDK, so the
+  app's own fallback handling is exercised regardless of those retries.
 
 The provider returns raw text. Parsing, validation, retry, fallback and output guards all
 live in the app ([`triage.py`](triage.py)), so they are tested the same way regardless of

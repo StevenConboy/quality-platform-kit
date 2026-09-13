@@ -51,7 +51,8 @@ def test_healthy_summaries_are_grounded(
     sample: dict[str, str],
 ) -> None:
     ticket = make_ticket(sample)
-    result = client.triage(ticket)
+    result = client.triage_healthy(ticket)
+    assert result.source == "llm", f"no LLM answer to check: {result.degradation_reason}"
     verdict = groundedness.check(ticket, result.summary)
 
     record(report, request.node.nodeid, ticket, result.summary, verdict, expected_grounded=True)
@@ -67,7 +68,7 @@ def test_hallucinated_summary_is_caught(
 ) -> None:
     ticket = make_ticket()
     faults.assert_off("llm_hallucinate")
-    honest = client.triage(ticket)
+    honest = client.triage_healthy(ticket)
     assert groundedness.check(ticket, honest.summary).grounded
 
     with faults.enabled("llm_hallucinate"):
