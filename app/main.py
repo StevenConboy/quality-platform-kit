@@ -15,8 +15,9 @@ from fastapi.responses import JSONResponse
 
 from app.budget import TokenBudget
 from app.config import Settings
-from app.faults import FAULT_DESCRIPTIONS, FaultConfig, UnknownFault, resolve_faults
+from app.faults import ALL_FAULTS, FAULT_DESCRIPTIONS, FaultConfig, UnknownFault, resolve_faults
 from app.health import ProviderStatus
+from app.history import TriageHistory
 from app.logging_setup import configure_logging
 from app.metrics import Metrics
 from app.models import (
@@ -25,6 +26,7 @@ from app.models import (
     LLMStatus,
     MetricsResponse,
     Ticket,
+    TriageRecord,
     TriageResponse,
 )
 from app.providers.anthropic_provider import AnthropicProvider
@@ -35,6 +37,16 @@ from app.triage import QuotaExhausted, TriageService
 log = logging.getLogger("api")
 
 QUOTA_RETRY_AFTER_SECONDS = 60
+QUOTA_ERROR = ErrorResponse(
+    error="token_budget_exhausted",
+    detail="LLM token budget is spent. Triage is paused until it is raised or reset.",
+)
+
+X_FAULT_DESCRIPTION = (
+    "Inject faults for this request only. Comma-separated fault names to enable; "
+    "prefix a name with '-' to disable one that is on globally; 'none' clears all. "
+    "Valid names: " + ", ".join(sorted(ALL_FAULTS)) + "."
+)
 
 
 @dataclass
@@ -46,6 +58,7 @@ class AppState:
     status: ProviderStatus
     provider: LLMProvider
     service: TriageService
+    history: TriageHistory
 
 
 def build_provider(settings: Settings) -> LLMProvider:
@@ -74,6 +87,7 @@ def create_app(settings: Settings | None = None, provider: LLMProvider | None = 
         status=status,
         provider=provider,
         service=TriageService(provider, settings, budget, metrics, status),
+        history=TriageHistory(),
     )
 
     app = FastAPI(
@@ -111,10 +125,7 @@ def create_app(settings: Settings | None = None, provider: LLMProvider | None = 
         return JSONResponse(
             status_code=503,
             headers={"Retry-After": str(QUOTA_RETRY_AFTER_SECONDS)},
-            content=ErrorResponse(
-                error="token_budget_exhausted",
-                detail="LLM token budget is spent. Triage is paused until it is raised or reset.",
-            ).model_dump(),
+            content=QUOTA_ERROR.model_dump(),
         )
 
     app.include_router(_build_routes())
@@ -128,7 +139,10 @@ def get_state(request: Request) -> AppState:
 
 def get_active_faults(
     state: Annotated[AppState, Depends(get_state)],
-    x_fault: Annotated[str | None, Header()] = None,
+    x_fault: Annotated[
+        str | None,
+        Header(description=X_FAULT_DESCRIPTION, examples=["llm_timeout", "llm_garbage,pii_leak"]),
+    ] = None,
 ) -> frozenset[str]:
     try:
         return resolve_faults(state.faults.enabled, x_fault)
@@ -150,7 +164,29 @@ def _build_routes() -> APIRouter:
         summary="Triage a maintenance ticket",
     )
     async def triage(ticket: Ticket, state: State, faults: ActiveFaults) -> TriageResponse:
-        return await state.service.triage(ticket, faults)
+        state.metrics.record_faults(faults)
+        try:
+            response = await state.service.triage(ticket, faults)
+        except QuotaExhausted:
+            state.history.record(ticket, faults, status_code=503, error=QUOTA_ERROR)
+            raise
+        state.history.record(ticket, faults, status_code=200, response=response)
+        return response
+
+    @router.get(
+        "/triage/recent",
+        response_model=list[TriageRecord],
+        summary="The most recent triage requests, newest first",
+        description=(
+            "Each record shows the ticket that came in, which faults were injected, and "
+            "what the app returned. Kept in memory only; the last 100 are retained."
+        ),
+    )
+    async def recent_triage(
+        state: State,
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> list[TriageRecord]:
+        return state.history.recent(limit)
 
     @router.get("/health", response_model=HealthResponse, summary="App and LLM status")
     async def health(

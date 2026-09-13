@@ -12,6 +12,7 @@ production can be switched on here without a real LLM.
 | Method | Path             | What it does                                                        |
 | ------ | ---------------- | ------------------------------------------------------------------- |
 | POST   | `/triage`        | Accepts a ticket, returns priority, category and a one-line summary |
+| GET    | `/triage/recent` | The last 100 triage requests: ticket, faults injected, result       |
 | GET    | `/health`        | App status plus what the app has observed about the LLM             |
 | GET    | `/health?probe=true` | Same, but actively pings the provider first                     |
 | GET    | `/metrics`       | Request counts, latency percentiles, LLM call outcomes, token spend |
@@ -44,6 +45,7 @@ Response:
   "degraded": false,
   "degradation_reason": null,
   "warnings": [],
+  "faults_applied": [],
   "model": "fake-triage-v1",
   "usage": { "input_tokens": 199, "output_tokens": 38 },
   "latency_ms": 0.17
@@ -54,6 +56,8 @@ Field notes:
 
 - `source` is `llm` when the model answered, `fallback` when the app answered on its own.
 - `degraded` and `degradation_reason` say whether and why the fallback path was used.
+- `faults_applied` lists the faults injected into this request, so cause and effect sit
+  side by side in one response.
 - `warnings` lists anything the app did to the response that a caller should know about:
   `pii_redacted`, `llm_output_retried`, `category_from_cache`, `category_from_keywords`,
   `unknown_priority_coerced:<value>`, `unknown_category_coerced:<value>`.
@@ -62,6 +66,21 @@ Field notes:
 
 Priorities: `critical`, `high`, `medium`, `low`.
 Categories: `electrical`, `plumbing`, `hvac`, `structural`, `safety`, `it`, `general`.
+
+### Seeing what happened
+
+Three views, from narrowest to widest:
+
+1. **One request:** the `/triage` response itself. `faults_applied` says what was injected,
+   `degraded`, `degradation_reason` and `warnings` say what the app did about it.
+2. **Recent requests:** `GET /triage/recent?limit=20` lists the last 100 requests newest
+   first, each with the ticket, the faults applied, and the full response (or the error
+   for a 503). In memory only, cleared on restart.
+3. **Totals:** `GET /metrics` has request counts, latency percentiles, LLM call outcomes,
+   token spend, and `faults_injected`, a count per fault name. `GET /health` has the most
+   recent LLM outcome only.
+
+The server also logs one JSON line per request with the `X-Fault` header value.
 
 ## Running it
 
@@ -105,6 +124,9 @@ Faults are switched on in two places:
    that is on globally, and `X-Fault: none` clears everything for that request.
 
 Unknown fault names are rejected with a 400 so a typo cannot silently test nothing.
+
+The header is described in the OpenAPI spec, so `/docs` shows an `x-fault` box on every
+endpoint that honours it.
 
 Faults that change the provider's behaviour are applied by `FaultInjectingProvider`
 ([`providers/faulty.py`](providers/faulty.py)), a wrapper the service puts around the real
@@ -223,6 +245,7 @@ app/
   guards.py               PII redaction, one-line summary
   heuristics.py           keyword rules shared by the fallback and the fake
   budget.py               token budget
+  history.py              last 100 triage records
   metrics.py              counts and percentiles
   health.py               provider status memory
   models.py               request/response schemas

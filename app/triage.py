@@ -181,6 +181,7 @@ class TriageService:
                 summary=summary,
                 source="llm",
                 warnings=warnings + parsed.warnings,
+                faults_applied=sorted(faults),
                 model=model,
                 usage=usage,
                 latency_ms=round(latency_ms, 2),
@@ -194,7 +195,7 @@ class TriageService:
             "LLM unavailable, using fallback",
             extra={"reason": error.reason, "detail": str(error), "asset_id": ticket.asset_id},
         )
-        return self._fallback(ticket, error, warnings, usage, latency_ms)
+        return self._fallback(ticket, faults, error, warnings, usage, latency_ms)
 
     async def _call(self, provider: LLMProvider, user_prompt: str) -> LLMResult:
         """One provider call, with the app's own timeout enforced and tokens recorded."""
@@ -213,6 +214,7 @@ class TriageService:
     def _fallback(
         self,
         ticket: Ticket,
+        faults: frozenset[str],
         error: ProviderError,
         warnings: list[str],
         usage: TokenUsage,
@@ -234,6 +236,7 @@ class TriageService:
             degraded=True,
             degradation_reason=error.reason,
             warnings=warnings,
+            faults_applied=sorted(faults),
             model=None,
             usage=usage,
             latency_ms=round(latency_ms, 2),

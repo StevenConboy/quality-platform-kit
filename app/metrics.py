@@ -43,6 +43,7 @@ class Metrics:
         self._llm_succeeded = 0
         self._llm_failed = 0
         self._fallbacks = 0
+        self._faults_injected: Counter[str] = Counter()
 
     def record_request(self, endpoint: str, status_code: int, latency_ms: float) -> None:
         with self._lock:
@@ -62,6 +63,11 @@ class Metrics:
     def record_fallback(self) -> None:
         with self._lock:
             self._fallbacks += 1
+
+    def record_faults(self, faults: frozenset[str]) -> None:
+        with self._lock:
+            for name in faults:
+                self._faults_injected[name] += 1
 
     def reset(self) -> None:
         with self._lock:
@@ -84,6 +90,7 @@ class Metrics:
                     failed=self._llm_failed,
                     fallbacks=self._fallbacks,
                 ),
+                faults_injected=dict(sorted(self._faults_injected.items())),
                 tokens=budget.status(),
                 tokens_by_direction=budget.by_direction(),
             )

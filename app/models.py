@@ -54,9 +54,28 @@ class TriageResponse(BaseModel):
     degraded: bool = False
     degradation_reason: str | None = None
     warnings: list[str] = Field(default_factory=list)
+    faults_applied: list[str] = Field(
+        default_factory=list, description="Faults injected into this request, from file or header"
+    )
     model: str | None = None
     usage: TokenUsage = Field(default_factory=TokenUsage)
     latency_ms: float
+
+
+class ErrorResponse(BaseModel):
+    error: str
+    detail: str
+
+
+class TriageRecord(BaseModel):
+    """One entry in the recent-history list: what came in, what was injected, what went out."""
+
+    received_at: str
+    status_code: int
+    faults_applied: list[str]
+    ticket: Ticket
+    response: TriageResponse | None = None
+    error: ErrorResponse | None = None
 
 
 class LLMStatus(BaseModel):
@@ -105,10 +124,6 @@ class MetricsResponse(BaseModel):
     latency: LatencyStats
     latency_by_endpoint: dict[str, LatencyStats]
     llm_calls: LLMCallStats
+    faults_injected: dict[str, int]
     tokens: BudgetStatus
     tokens_by_direction: TokenUsage
-
-
-class ErrorResponse(BaseModel):
-    error: str
-    detail: str
