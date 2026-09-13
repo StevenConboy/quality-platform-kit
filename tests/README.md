@@ -77,9 +77,12 @@ the test, and mypy is strict on `tests/` so the type hints are checked too.
 | `provider_name` | `"fake"` or `"anthropic"`                                                   |
 | `fresh_state`   | Skips the test under `--base-url`                                           |
 
-Sample tickets live in [`framework/tickets.py`](framework/tickets.py). Use
-`make_ticket(PLUMBING_LEAK, title="...")` to copy one with overrides; every copy gets a
-new asset id so the app's per-asset category cache cannot leak between tests.
+Sample tickets live in [`framework/tickets.py`](framework/tickets.py). `make_ticket()`
+with no arguments rotates through a pool of varied tickets covering every category, so a
+run does not submit the same title fifty times. `make_ticket(PLUMBING_LEAK, title="...")`
+copies a specific named sample with overrides. Every copy gets a new asset id (the
+sample's id plus a random suffix) so the app's per-asset category cache cannot leak
+between tests.
 
 ## The client
 
