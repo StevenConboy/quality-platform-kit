@@ -13,3 +13,8 @@ __pycache__/
 # Test and harness output
 reports/
 junit*.xml
+
+# Generated test drafts awaiting review (never merged automatically)
+authoring/review/
+# Exported by `authoring export-spec`; regenerate rather than commit
+openapi.json
