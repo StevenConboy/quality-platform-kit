@@ -95,7 +95,9 @@ report lists spend per test either way.
 
 The budget covers the whole pytest process, so running `uv run pytest` (tests and harness
 together) counts both. Point `HARNESS_CONFIG` at another YAML file to use a different
-budget or thresholds without editing the checked-in one.
+budget or thresholds without editing the checked-in one. `HARNESS_REPORT_OUTPUT` overrides
+the report path for one run; CI uses it so the quarantine run does not overwrite the
+real report.
 
 ## The report
 

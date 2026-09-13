@@ -18,10 +18,12 @@ concurrency:
 permissions:
   contents: read
 
-# Quarantine rule: every test job runs twice. The first run excludes tests marked
+# Quarantine rule: every test job runs pytest twice. The first run excludes tests marked
 # `flaky` and decides the job's result. The second runs only the flaky tests, never
 # fails the job (continue-on-error), and its results go to the job summary so they
-# are seen without being able to block a merge.
+# are seen without being able to block a merge. pytest exits 5 when nothing is
+# selected, which is the normal state until something is quarantined, so the
+# quarantine steps treat 5 as success.
 
 jobs:
   lint:
@@ -66,7 +68,10 @@ jobs:
         continue-on-error: true
         env:
           SIMULATE_FLAKY: "1" # the demo test in tests/demo flips a coin here, and only here
-        run: uv run pytest tests -m "smoke and flaky" --junitxml=reports/junit-smoke-flaky.xml
+        run: |
+          uv run pytest tests -m "smoke and flaky" --junitxml=reports/junit-smoke-flaky.xml || code=$?
+          if [ "${code:-0}" -eq 5 ]; then echo "No quarantined smoke tests."; exit 0; fi
+          exit "${code:-0}"
 
       - name: Job summary
         if: ${{ !cancelled() }}
@@ -101,7 +106,10 @@ jobs:
         continue-on-error: true
         env:
           SIMULATE_FLAKY: "1" # the demo test in tests/demo flips a coin here, and only here
-        run: uv run pytest tests -m "regression and flaky" --junitxml=reports/junit-regression-flaky.xml
+        run: |
+          uv run pytest tests -m "regression and flaky" --junitxml=reports/junit-regression-flaky.xml || code=$?
+          if [ "${code:-0}" -eq 5 ]; then echo "No quarantined regression tests."; exit 0; fi
+          exit "${code:-0}"
 
       - name: Job summary
         if: ${{ !cancelled() }}
@@ -137,7 +145,12 @@ jobs:
       - name: Quarantined harness tests (never block)
         if: ${{ !cancelled() }}
         continue-on-error: true
-        run: uv run pytest harness -m flaky --junitxml=reports/junit-harness-flaky.xml
+        env:
+          HARNESS_REPORT_OUTPUT: reports/harness-report-flaky.md # keep the real report intact
+        run: |
+          uv run pytest harness -m flaky --junitxml=reports/junit-harness-flaky.xml || code=$?
+          if [ "${code:-0}" -eq 5 ]; then echo "No quarantined harness tests."; exit 0; fi
+          exit "${code:-0}"
 
       - name: Job summary
         if: ${{ !cancelled() }}

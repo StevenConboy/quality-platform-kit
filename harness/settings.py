@@ -54,5 +54,9 @@ class HarnessSettings:
             min_score=int(grounded["min_score"]),
             payloads_path=REPO_ROOT / raw["adversarial"]["payloads"],
             report_template=REPO_ROOT / raw["report"]["template"],
-            report_output=REPO_ROOT / raw["report"]["output"],
+            # HARNESS_REPORT_OUTPUT lets a second run in the same job (the quarantine
+            # step in CI) write elsewhere instead of overwriting the real report.
+            report_output=Path(
+                os.environ.get("HARNESS_REPORT_OUTPUT", REPO_ROOT / raw["report"]["output"])
+            ),
         )
