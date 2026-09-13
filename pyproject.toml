@@ -8,6 +8,7 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "anthropic>=1.0",
     "pydantic>=2.7",
+    "pyyaml>=6.0",
 ]
 
 [dependency-groups]
@@ -16,6 +17,7 @@ dev = [
     "httpx2>=2.0",
     "ruff>=0.6",
     "mypy>=1.11",
+    "types-pyyaml>=6.0",
 ]
 
 [tool.uv]
@@ -31,10 +33,10 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["app", "tests"]
+files = ["app", "tests", "harness"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "harness"]
 # --strict-markers: a marker that is not registered below is an error, not a silent no-op.
 # --strict-config: a typo in this section is an error too.
 addopts = "--strict-markers --strict-config -ra"

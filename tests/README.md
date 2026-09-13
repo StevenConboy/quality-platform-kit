@@ -5,12 +5,13 @@
 From the repo root:
 
 ```bash
-uv run pytest
+uv run pytest tests
 ```
 
-That runs everything: 41 tests against an in-process copy of the app using the fake LLM
-provider. No server, no network, no API key. It takes about five seconds. At the end you
-get a summary of how many tokens each test spent.
+That runs the shared suites: 41 tests against an in-process copy of the app using the
+fake LLM provider. No server, no network, no API key. It takes about five seconds. At the
+end you get a summary of how many tokens each test spent. Plain `uv run pytest` with no
+path also runs the resilience harness in [`harness/`](../harness/README.md).
 
 `uv run` just means "run this inside the project's virtual environment". If you have
 activated the environment yourself, plain `pytest` works too.
@@ -130,9 +131,10 @@ when the token budget is spent, and a test must be able to see it.
 ## Layout
 
 ```
+conftest.py                (repo root) loads tests/framework/fixtures.py as a plugin
 tests/
-  conftest.py              fixtures, command line options, failure reporting
   framework/
+    fixtures.py            fixtures, command line options, failure reporting
     client.py              the HTTP client: retries, request/response capture
     faults.py              FaultToggler
     budget.py              token spend tracking

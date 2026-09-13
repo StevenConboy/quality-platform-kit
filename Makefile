@@ -1,4 +1,4 @@
-.PHONY: install run lint format typecheck check test smoke regression test-fast test-live test-anthropic clean
+.PHONY: install run lint format typecheck check test smoke regression test-fast test-live test-anthropic harness harness-online clean
 
 # Install runtime and dev dependencies into .venv
 install:
@@ -18,27 +18,35 @@ format:
 typecheck:
 	uv run mypy
 
-# All tests, in-process app, FakeProvider, no network
+# The shared test suites, in-process app, FakeProvider, no network
 test:
-	uv run pytest
+	uv run pytest tests
 
 smoke:
-	uv run pytest -m smoke
+	uv run pytest tests -m smoke
 
 regression:
-	uv run pytest -m regression
+	uv run pytest tests -m regression
 
 # Skip anything marked slow
 test-fast:
-	uv run pytest -m "not slow"
+	uv run pytest tests -m "not slow"
 
 # Against a running server, e.g. `make run` in another terminal
 test-live:
-	uv run pytest --base-url http://localhost:8000
+	uv run pytest tests --base-url http://localhost:8000
 
 # In-process app talking to the real Anthropic API; needs ANTHROPIC_API_KEY
 test-anthropic:
-	uv run pytest --provider anthropic
+	uv run pytest tests --provider anthropic
+
+# Resilience harness, offline: fake provider, keyword groundedness
+harness:
+	uv run pytest harness
+
+# Resilience harness with the real API for both the app and the judge
+harness-online:
+	uv run pytest harness --provider anthropic
 
 # Everything CI runs that does not need a network
 check: lint typecheck test

@@ -1,0 +1,34 @@
+# Settings for the resilience harness. Read once at session start by harness/conftest.py.
+
+token_budget:
+  # Total tokens the app may spend across one harness run. If crossed, the run is marked
+  # failed and stops after the current test. Counts fake-provider estimates too, so the
+  # budget behaves the same offline.
+  run: 60000
+  # Any single test spending more than this is flagged as a hot spot in the report.
+  per_test: 5000
+
+health:
+  # How many times /health?probe=true is called to measure provider latency.
+  probe_count: 3
+  # Slowest acceptable probe. The fake provider answers in microseconds; a real API in
+  # hundreds of milliseconds.
+  max_probe_latency_ms: 5000
+
+groundedness:
+  # auto: use the LLM judge when ANTHROPIC_API_KEY is set, keyword overlap otherwise.
+  # llm: always use the judge (fails if no key). keyword: never call the API.
+  judge: auto
+  model: claude-opus-5
+  rubric: harness/groundedness_rubric.md
+  # Keyword fallback: fraction of the summary's content words that must appear in the ticket.
+  min_overlap: 0.2
+  # LLM judge: rubric score (1-5) at or above which a summary counts as grounded.
+  min_score: 3
+
+adversarial:
+  payloads: harness/payloads/adversarial.yaml
+
+report:
+  template: harness/REPORT.md
+  output: reports/harness-report.md

@@ -1,4 +1,6 @@
-"""Fixtures and hooks shared by every test in this repo.
+"""Fixtures and hooks shared by every suite in this repo.
+
+Loaded as a pytest plugin from the root conftest.py, so tests/ and harness/ both get them.
 
 Fixtures:
   client         TriageClient against a fresh in-process app (or a live server with --base-url)

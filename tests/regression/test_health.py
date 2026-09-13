@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from tests.conftest import MakeClient
 from tests.framework.client import TriageClient
 from tests.framework.faults import FaultToggler
+from tests.framework.fixtures import MakeClient
 
 pytestmark = pytest.mark.regression
 
