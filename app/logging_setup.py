@@ -32,10 +32,15 @@ class JsonFormatter(logging.Formatter):
 
 
 def configure_logging(level: int = logging.INFO) -> None:
+    """Add a JSON handler to the root logger, unless something (pytest, for example)
+    has already configured one. Then that handler sees our records instead."""
     root = logging.getLogger()
-    if any(isinstance(h.formatter, JsonFormatter) for h in root.handlers):
-        return
-    handler = logging.StreamHandler()
-    handler.setFormatter(JsonFormatter())
-    root.handlers = [handler]
-    root.setLevel(level)
+    if not root.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(JsonFormatter())
+        root.addHandler(handler)
+    if root.level == logging.NOTSET or root.level > level:
+        root.setLevel(level)
+    # The HTTP client libraries log every request at INFO; that is noise here.
+    for name in ("httpx", "httpx2", "httpcore"):
+        logging.getLogger(name).setLevel(logging.WARNING)

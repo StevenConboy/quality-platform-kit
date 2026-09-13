@@ -13,7 +13,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.3",
-    "httpx>=0.27",
+    "httpx2>=2.0",
     "ruff>=0.6",
     "mypy>=1.11",
 ]
@@ -31,4 +31,18 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["app"]
+files = ["app", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# --strict-markers: a marker that is not registered below is an error, not a silent no-op.
+# --strict-config: a typo in this section is an error too.
+addopts = "--strict-markers --strict-config -ra"
+log_level = "INFO"
+markers = [
+    "smoke: fast checks that the service is up and the main paths work; run on every push",
+    "regression: behaviour that has been specified or has broken before; run before merge",
+    "adversarial: hostile or malformed input; the app must stay safe, not necessarily useful",
+    "flaky: quarantined; runs but does not block the pipeline (see scripts/flake_detect.py)",
+    "slow: takes more than a couple of seconds; skipped with -m 'not slow'",
+]
