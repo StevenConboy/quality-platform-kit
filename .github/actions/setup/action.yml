@@ -1,0 +1,20 @@
+name: Set up uv and Python
+description: Install uv with caching, the requested Python, and the project's locked dependencies.
+
+inputs:
+  python-version:
+    description: Python version to install
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+        enable-cache: true
+        cache-dependency-glob: uv.lock
+
+    - name: Install dependencies
+      shell: bash
+      run: uv sync --all-groups --frozen

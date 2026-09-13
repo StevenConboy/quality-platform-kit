@@ -1,4 +1,4 @@
-.PHONY: install run lint format typecheck check test smoke regression test-fast test-live test-anthropic harness harness-online clean
+.PHONY: install run lint format typecheck check test smoke regression test-fast test-live test-anthropic harness harness-online flake-detect clean
 
 # Install runtime and dev dependencies into .venv
 install:
@@ -48,8 +48,12 @@ harness:
 harness-online:
 	uv run pytest harness --provider anthropic
 
+# Run the shared suite five times and report tests with inconsistent results
+flake-detect:
+	uv run python scripts/flake_detect.py --suite tests --runs 5
+
 # Everything CI runs that does not need a network
-check: lint typecheck test
+check: lint typecheck test harness
 
 clean:
 	uv run python -c "import shutil; [shutil.rmtree(p, ignore_errors=True) for p in ('.mypy_cache', '.ruff_cache', '.pytest_cache')]"

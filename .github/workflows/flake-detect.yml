@@ -1,0 +1,57 @@
+name: Weekly flake detection
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Suite to run (a path pytest accepts)
+        default: tests
+      runs:
+        description: How many times to run it
+        default: "5"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  detect:
+    name: run the suite repeatedly and compare
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          python-version: "3.12"
+
+      - name: Detect flaky tests
+        id: detect
+        run: |
+          uv run python scripts/flake_detect.py \
+            --suite "${{ inputs.suite || 'tests' }}" \
+            --runs "${{ inputs.runs || '5' }}" \
+            --report reports/flake-report.md
+          cat reports/flake-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flake-report
+          path: reports/flake-report.md
+
+      - name: Open or update the tracking issue
+        if: steps.detect.outputs.flaky_count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create flaky --description "Tests with inconsistent results" --color D93F0B --force
+          title="Flaky tests detected by the weekly run"
+          existing=$(gh issue list --label flaky --state open --search "$title in:title" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file reports/flake-report.md
+          else
+            gh issue create --title "$title ($(date -u +%Y-%m-%d))" --label flaky --body-file reports/flake-report.md
+          fi

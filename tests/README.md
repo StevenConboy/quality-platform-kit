@@ -118,6 +118,22 @@ Named sample tickets (`ELECTRICAL_URGENT`, `PLUMBING_LEAK`, `WITH_PII`, ...) are
 
 They are registered in [`pyproject.toml`](../pyproject.toml).
 
+## Flaky tests
+
+A test marked `flaky` still runs in CI, but in a separate step that cannot fail the
+pipeline; its result goes to the job summary instead. To find candidates, run the suite
+several times and compare:
+
+```bash
+uv run python scripts/flake_detect.py --suite tests --runs 5
+uv run python scripts/flake_detect.py --suite tests --runs 5 --apply   # also insert the markers
+```
+
+`--apply` writes a marker with the detection date above each inconsistent test, for
+example `@pytest.mark.flaky  # quarantined 2026-09-13 by scripts/flake_detect.py: failed
+2 of 5 runs`. Review the diff before committing. A weekly workflow runs the detector and
+opens an issue when it finds anything.
+
 ## Two rules the suite follows
 
 **Every fault test proves the fault is off first.** If a fault was already on, "before"

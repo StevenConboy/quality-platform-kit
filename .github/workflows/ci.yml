@@ -1,0 +1,189 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Quarantine rule: every test job runs twice. The first run excludes tests marked
+# `flaky` and decides the job's result. The second runs only the flaky tests, never
+# fails the job (continue-on-error), and its results go to the job summary so they
+# are seen without being able to block a merge.
+
+jobs:
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          python-version: "3.12"
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+
+  typecheck:
+    name: typecheck (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          python-version: "3.12"
+      - run: uv run mypy
+
+  smoke:
+    name: smoke (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Smoke tests
+        run: uv run pytest tests -m "smoke and not flaky" --junitxml=reports/junit-smoke.xml
+
+      - name: Quarantined smoke tests (never block)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: uv run pytest tests -m "smoke and flaky" --junitxml=reports/junit-smoke-flaky.xml
+
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        run: |
+          uv run python scripts/junit_summary.py --title "Smoke (py${{ matrix.python }})" reports/junit-smoke.xml >> "$GITHUB_STEP_SUMMARY"
+          uv run python scripts/junit_summary.py --quarantine --title "Quarantined smoke tests (py${{ matrix.python }})" reports/junit-smoke-flaky.xml >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: junit-smoke-py${{ matrix.python }}
+          path: reports/junit-*.xml
+
+  regression:
+    name: regression (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Regression tests
+        run: uv run pytest tests -m "regression and not flaky" --junitxml=reports/junit-regression.xml
+
+      - name: Quarantined regression tests (never block)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: uv run pytest tests -m "regression and flaky" --junitxml=reports/junit-regression-flaky.xml
+
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        run: |
+          uv run python scripts/junit_summary.py --title "Regression (py${{ matrix.python }})" reports/junit-regression.xml >> "$GITHUB_STEP_SUMMARY"
+          uv run python scripts/junit_summary.py --quarantine --title "Quarantined regression tests (py${{ matrix.python }})" reports/junit-regression-flaky.xml >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: junit-regression-py${{ matrix.python }}
+          path: reports/junit-*.xml
+
+  harness-offline:
+    name: harness offline (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    env:
+      # Guarantee no network calls even if the repository has the secret configured.
+      ANTHROPIC_API_KEY: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Resilience harness (fake provider, keyword judge)
+        run: uv run pytest harness -m "not flaky" --junitxml=reports/junit-harness.xml
+
+      - name: Quarantined harness tests (never block)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: uv run pytest harness -m flaky --junitxml=reports/junit-harness-flaky.xml
+
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        run: |
+          uv run python scripts/junit_summary.py --title "Harness offline (py${{ matrix.python }})" reports/junit-harness.xml >> "$GITHUB_STEP_SUMMARY"
+          uv run python scripts/junit_summary.py --quarantine --title "Quarantined harness tests (py${{ matrix.python }})" reports/junit-harness-flaky.xml >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: harness-offline-py${{ matrix.python }}
+          path: |
+            reports/junit-*.xml
+            reports/harness-report.md
+
+  # Secrets cannot be read in a job-level `if`, so a tiny job turns the secret's
+  # presence into an output the online job can depend on.
+  secrets-check:
+    name: check for API key
+    runs-on: ubuntu-latest
+    outputs:
+      has-anthropic-key: ${{ steps.check.outputs.present }}
+    steps:
+      - id: check
+        env:
+          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
+
+  harness-online:
+    name: harness online (real API)
+    needs: [secrets-check, harness-offline]
+    if: needs.secrets-check.outputs.has-anthropic-key == 'true'
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          python-version: "3.12"
+
+      - name: Resilience harness (Anthropic provider, LLM judge)
+        run: uv run pytest harness -m "not flaky" --provider anthropic --junitxml=reports/junit-harness-online.xml
+
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        run: |
+          uv run python scripts/junit_summary.py --title "Harness online" reports/junit-harness-online.xml >> "$GITHUB_STEP_SUMMARY"
+          { echo; echo "## Harness report (online)"; echo; cat reports/harness-report.md; } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: harness-online
+          path: |
+            reports/junit-*.xml
+            reports/harness-report.md
