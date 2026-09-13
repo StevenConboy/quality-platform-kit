@@ -1,0 +1,11 @@
+{
+  "faults": {
+    "llm_timeout": false,
+    "llm_rate_limit": false,
+    "llm_garbage": false,
+    "llm_hallucinate": false,
+    "quota_exceeded": false,
+    "slow_response": false,
+    "pii_leak": false
+  }
+}
