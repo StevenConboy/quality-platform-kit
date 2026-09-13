@@ -59,6 +59,8 @@ jobs:
       - name: Quarantined smoke tests (never block)
         if: ${{ !cancelled() }}
         continue-on-error: true
+        env:
+          SIMULATE_FLAKY: "1" # the demo test in tests/demo flips a coin here, and only here
         run: uv run pytest tests -m "smoke and flaky" --junitxml=reports/junit-smoke-flaky.xml
 
       - name: Job summary
@@ -92,6 +94,8 @@ jobs:
       - name: Quarantined regression tests (never block)
         if: ${{ !cancelled() }}
         continue-on-error: true
+        env:
+          SIMULATE_FLAKY: "1" # the demo test in tests/demo flips a coin here, and only here
         run: uv run pytest tests -m "regression and flaky" --junitxml=reports/junit-regression-flaky.xml
 
       - name: Job summary

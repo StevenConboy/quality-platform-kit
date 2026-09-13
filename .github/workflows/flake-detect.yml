@@ -11,6 +11,10 @@ on:
       runs:
         description: How many times to run it
         default: "5"
+      simulate_flaky:
+        description: Make tests/demo/test_simulated_flake.py fail at random, to exercise the workflow
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -22,6 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ANTHROPIC_API_KEY: ""
+      SIMULATE_FLAKY: ${{ inputs.simulate_flaky && '1' || '0' }}
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup

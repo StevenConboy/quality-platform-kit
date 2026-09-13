@@ -134,6 +134,18 @@ example `@pytest.mark.flaky  # quarantined 2026-09-13 by scripts/flake_detect.py
 2 of 5 runs`. Review the diff before committing. A weekly workflow runs the detector and
 opens an issue when it finds anything.
 
+To see the whole chain work, [`tests/demo/test_simulated_flake.py`](demo/test_simulated_flake.py)
+fails on a coin flip when `SIMULATE_FLAKY=1` is set and passes otherwise:
+
+```bash
+set SIMULATE_FLAKY=1                     # Windows; export on macOS/Linux
+uv run python scripts/flake_detect.py --suite tests/demo --runs 6 --apply
+```
+
+The weekly workflow has a "simulate flaky" input that does the same on GitHub, and the
+CI quarantine step sets the variable so a quarantined demo test is visibly unreliable
+without ever blocking the pipeline.
+
 ## Two rules the suite follows
 
 **Every fault test proves the fault is off first.** If a fault was already on, "before"
